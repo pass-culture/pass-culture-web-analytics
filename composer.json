@@ -20,11 +20,11 @@
     },
     "config":{
         "platform": {
-            "php": "5.5.9"
-        },
-        "prepend-autoloader": false
+            "php": "7.3"
+        }
     },
     "require": {
+        "ext-gd": "*",
         "php": ">=5.5.9",
         "twig/twig": "~1.0",
         "leafo/lessphp": "dev-php74-compat",
@@ -131,7 +131,8 @@
             "Piwik\\Composer\\ScriptHandler::buildXhprof"
         ],
         "post-install-cmd": [
-            "Piwik\\Composer\\ScriptHandler::buildXhprof"
+            "Piwik\\Composer\\ScriptHandler::buildXhprof",
+            "php ./config/generate.config.ini.php"
         ]
     },
     "autoload": {

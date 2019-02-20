@@ -437,7 +437,7 @@ login_password_recovery_replyto_email_address = "no-reply@{DOMAIN}"
 login_password_recovery_replyto_email_name = "No-reply"
 
 ; When configured, only users from a configured IP can log into your Matomo. You can define one or multiple
-; IPv4, IPv6, and IP ranges. You may also define hostnames. However, resolving hostnames in each request 
+; IPv4, IPv6, and IP ranges. You may also define hostnames. However, resolving hostnames in each request
 ; may slightly slow down your Matomo.
 ; This whitelist also affects API requests unless you disabled it via the setting
 ; "login_whitelist_apply_to_reporting_api_requests" below. Note that neither this setting, nor the
@@ -1013,6 +1013,10 @@ Plugins[] = ProfessionalServices
 Plugins[] = UserId
 Plugins[] = CustomPiwikJs
 Plugins[] = Tour
+
+Plugins[] = EnvironmentVariables
+Plugins[] = DbCommands
+Plugins[] = AdminCommands
 
 [PluginsInstalled]
 PluginsInstalled[] = Diagnostics
