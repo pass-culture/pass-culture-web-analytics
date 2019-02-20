@@ -9,6 +9,33 @@
 [![Build Status](https://travis-ci.org/matomo-org/matomo.svg?branch=master)](https://travis-ci.org/matomo-org/matomo/branches)
 [![Percentage of issues still open](http://isitmaintained.com/badge/open/matomo-org/matomo.svg)](http://isitmaintained.com/project/matomo-org/matomo "Percentage of issues still open")
 
+## Note about this repository
+
+This repository is a fork maintained by Scalingo in order to ensure easy deployment on the hosting platform.
+
+Three additional plugins have been added additionally to the standard distribution:
+
+* EnvironmentVariables: To let you configure your instance through the environment and not through files to respect the 12 factor. [https://github.com/matomo-org/plugin-EnvironmentVariables](https://github.com/matomo-org/plugin-EnvironmentVariables)
+* DbCommands: Written by us to initialize the database with a console command: `database:create-tables`
+* AdminCommands: Written by us to create a super user or a site: `admin:create-superuser` or `admin:create-site`
+
+You can deploy your own version of Matomo with this button:
+
+[![Deploy to Scalingo](https://cdn.scalingo.com/deploy/button.svg)](https://my.scalingo.com/deploy?source=https://github.com/Scalingo/matomo)
+
+### Configuration:
+
+* `MAIL_URL`: URL of the mailserver which is going to serve the emails of Matomo (ie. smtp://user:password@in.mailjet.com:587)
+
+Any configuration of Matomo can be modified through the environment following this scheme: `MATOMO_SECTION_PROPERTY=VALUE`
+
+As a real life example: `MATOMO_GENERAL_SALT=377efc193ca086` is replacing:
+
+```ini
+[General]
+salt=377efc193ca086
+```
+
 ## Description
 
 Matomo is the leading Free/Libre open analytics platform.
@@ -34,7 +61,7 @@ Matomo is released under the GPL v3 (or later) license, see [misc/gpl-3.0.txt](m
 ## Requirements
 
   * PHP 5.5.9 or greater
-  * MySQL version 5.5 or greater, or MariaDB 
+  * MySQL version 5.5 or greater, or MariaDB
   * PHP extension pdo and pdo_mysql, or the MySQLi extension.
   * Matomo is OS / server independent
 
@@ -50,7 +77,7 @@ See https://matomo.org/docs/requirements/
 
 See https://matomo.org/docs/installation/
 
-## Free trial 
+## Free trial
 
 If you do not have a server or don't want to host yourself you can use our Matomo Cloud partner service (30 day free trial): https://www.innocraft.cloud/
 
@@ -76,7 +103,7 @@ We use [BrowserStack.com](https://www.browserstack.com/) testing tool to help ch
 
 ## Security
 
-Security is a top priority at Matomo. As potential issues are discovered, we validate, patch and release fixes as quickly as we can. We have a security bug bounty program in place that rewards researchers for finding security issues and disclosing them to us. 
+Security is a top priority at Matomo. As potential issues are discovered, we validate, patch and release fixes as quickly as we can. We have a security bug bounty program in place that rewards researchers for finding security issues and disclosing them to us.
 
 [Learn more](https://matomo.org/security/) or check out our [HackerOne program](https://hackerone.com/matomo).
 
@@ -84,7 +111,7 @@ Security is a top priority at Matomo. As potential issues are discovered, we val
 
 For **Free support**, post a message in our community forums: [forum.matomo.org](https://forum.matomo.org/)
 
-For **Professional paid support**, send a message to our network of Matomo professionals: [matomo.org/support](https://matomo.org/contact/)  
+For **Professional paid support**, send a message to our network of Matomo professionals: [matomo.org/support](https://matomo.org/contact/)
 
 ## Contact
 

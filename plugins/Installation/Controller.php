@@ -538,7 +538,7 @@ class Controller extends \Piwik\Plugin\ControllerAdmin
 
         return AssetManager::compileCustomJs($files);
     }
-    
+
     private function getParam($name)
     {
         return Common::getRequestVar($name, false, 'string');
