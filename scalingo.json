@@ -9,8 +9,7 @@
   "env": {
     "MATOMO_INIT_USER_LOGIN": {
       "description": "username of the superuser",
-      "required": true
-    },
+      "required": true},
     "MATOMO_INIT_USER_EMAIL": {
       "description": "email of the superuser",
       "required": true

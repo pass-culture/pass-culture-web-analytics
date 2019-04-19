@@ -1,5 +1,8 @@
 #!/bin/bash
 
+
+echo salut > /tmp/bonjour
+
 php console database:create-tables && \
   php console core:update --yes && \
   php console admin:create-superuser --login $MATOMO_INIT_USER_LOGIN --email $MATOMO_INIT_USER_EMAIL --password $MATOMO_INIT_USER_PASSWORD && \
