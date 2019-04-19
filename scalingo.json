@@ -36,5 +36,5 @@
       "required": false
     }
   },
-  "addons": ["mysql:free"]
+  "addons": ["mysql:mysql-sandbox"]
 }
