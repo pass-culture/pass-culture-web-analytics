@@ -27,6 +27,15 @@ You can deploy your own version of Matomo with this button:
 
 ### Configuration:
 
+The following env vars must be set in a file given to matomo :
+```
+MATOMO_INIT_SITE_NAME=pass-culture
+MATOMO_INIT_SITE_URL=pass-culture.beta.gouv.fr
+MATOMO_INIT_USER_EMAIL=email@pass-culture.fr
+MATOMO_INIT_USER_LOGIN=user_login
+MATOMO_INIT_USER_PASSWORD=secure_password
+```
+
 * `MAIL_URL`: URL of the mailserver which is going to serve the emails of Matomo (ie. smtp://user:password@in.mailjet.com:587)
 
 Any configuration of Matomo can be modified through the environment following this scheme: `MATOMO_SECTION_PROPERTY=VALUE`
@@ -36,6 +45,11 @@ As a real life example: `MATOMO_GENERAL_SALT=377efc193ca086` is replacing:
 ```ini
 [General]
 salt=377efc193ca086
+```
+
+To deploy Matomo on scalingo, please use the init_new_instance.sh script and provide an application name and a user password.
+```
+./init_new_instance.sh -n matomo -f path/to/crendential/file
 ```
 
 ## Description

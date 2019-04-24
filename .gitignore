@@ -59,6 +59,7 @@ php_errors.log
 /misc/.htaccess
 /misc/cron/.htaccess
 /plugins/.htaccess
+/tests/*
 /tests/resources/overlay-test-site-real/
 /tests/PHPUnit/proxy/libs
 /tests/PHPUnit/proxy/piwik.js

@@ -1,24 +1,18 @@
 #!/usr/bin/env bash
 
 set -o errexit
-set -o pipefail
 set -o nounset
 
-#TODO: improve script by getting parameters from template file maybe ?
-#TODO: set all env var from a single file ?
-
 if [ "$1" == "-h" ]; then
-    echo "$(basename "$0") [-h] [-n s1 -r s2 -u s3 -d s4 -b i1 -j -k s4 s5] -- program to create new project on Scalingo
+    echo "$(basename "$0") [-h] [-n s1 -r s2 -u s3 -d s4 -b i1 -f s5] -- program to create new project on Scalingo
 where:
     -h  show this help text
     -n  new Scalingo project name (required)
     -r  set the remote target for the project (default: scalingo)
     -u  set the custom domain name (optional)
-    -d  set database plan size (default: free)
+    -d  set database plan size (default: mysql-sandbox)
     -b  set number of backends to deploy (default: 1)
-    -j  set the env var MAILJET_API_SECRET (required)
-    -k  set the env var MAILJET_API_KEY (required)
-    -e  set env variable ENV (optionnal)"
+    -f path of the credential file (required)"
     exit 0
 fi
 
@@ -63,58 +57,43 @@ else
   NB_BACKENDS=${NB_BACKENDS:-'1'}
 fi
 
-# DELETE OLD SCALINGO PROJECT
-scalingo -a $APP_NAME destroy
+# GET CREDENTIAL FILE PATH
+if [[ $# -gt 1 ]] && [[ "$1" == "-f" ]]; then
+  CREDENTIAL_FILE_PATH=$2
+  shift 2
+else
+  echo "You must provide a credential file."
+  exit 1
+fi
 
 # CREATE NEW PROJECT ON SCALINGO
 echo "Creating new app on Scalingo..."
-if [ "$APP_REMOTE" = "" ]; then
-  scalingo create "$APP_NAME"
-else
-  scalingo create "$APP_NAME" --remote "$APP_REMOTE"
-fi
+scalingo create "$APP_NAME" --remote "$APP_REMOTE"
 
 # ADD DATABASE PLUGIN
 echo "Add Mysql addon to app..."
-scalingo -a "$APP_NAME" addons-add mysql mysql-sandbox
+scalingo -a "$APP_NAME" addons-add mysql "$DATABASE_SIZE"
+# ENSURE THE DATABASE HAS THE TIME TO START UP
+sleep 20
 
-# GET MAILJET_API_SECRET
-if [[ $# -gt 1 ]] && [[ "$1" == "-j" ]]; then
-  scalingo -a "$APP_NAME" env-set MAILJET_API_SECRET="$2"
-  shift 2
-else
-  echo "You must provide a # GET MAILJET_API_SECRET."
-  exit 1
-fi
-
-# GET MAILJET_API_KEY
-if [[ $# -gt 1 ]] && [[ "$1" == "-k" ]]; then
-  scalingo -a "$APP_NAME" env-set MAILJET_API_KEY="$2"
-  shift 2
-else
-  echo "You must provide a MAILJET_API_KEY."
-  exit 1
-fi
-
-# IF PROVIDED ADD ENV VAR
-if [[ $# -gt 1 ]] && [[ "$1" == "-e" ]]; then
-  scalingo -a "$APP_NAME" env-set ENV="$2"
-  shift 2
-else
-  echo "No env var ENV provided."
-fi
+# SET APPLICATION ENV VARS
+scalingo -a "$APP_NAME" env-set $(cat "$CREDENTIAL_FILE_PATH")
 
 # DEPLOY CURRENT GIT BRANCH TO SCALINGO
 readonly GIT_LOCAL_BRANCH_NAME=$(git branch 2> /dev/null | sed -e '/^[^*]/d' -e 's/* \(.*\)/\1/')
 echo "Add remote in local git..."
-#git remote add "$APP_REMOTE" git@scalingo.com:"$APP_NAME".git
+git remote remove "$APP_REMOTE"
+git remote add "$APP_REMOTE" git@scalingo.com:"$APP_NAME".git
 echo "Deploying current repo to new app on Scalingo..."
 git push "$APP_REMOTE" "$GIT_LOCAL_BRANCH_NAME":master
 
-#scalingo -a matomo run ./console plugin:activate ExtraTools
+#ENSURE THE APPLICATION HAS THE TIME TO START
+sleep 10
+
+scalingo -a "$APP_NAME" run "bash bin/first-deploy-init.sh"
 
 # SCALE APPLICATION TO EXPECTED NUMBER OF BACKENDS
-if [ "$NB_BACKENDS" == "1" ]; then
+if [ "$NB_BACKENDS" != "1" ]; then
   echo "Scaling backends..."
   scalingo -a pass-culture-api scale web:"$NB_BACKENDS"
 fi
@@ -125,6 +104,5 @@ if [ "$APP_CUSTOM_DNS" != "" ]; then
     echo "Registering new custom DNS..."
     scalingo -a "$APP_NAME" domains-add "$APP_CUSTOM_DNS"
 fi
-
 
 echo "Operation completed."
