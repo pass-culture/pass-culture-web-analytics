@@ -75,3 +75,6 @@ php_errors.log
 /.vagrant
 /plugins/.gitignore
 /js/container*.js
+.gitsecret/keys/random_seed
+matomo_init_env
+.gitsecret/keys/random_seed
