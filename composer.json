@@ -24,7 +24,7 @@
         }
     },
     "php-config": [
-        "memory_limit=1228M",
+        "memory_limit=1228M"
     ],
     "require": {
         "ext-gd": "*",
