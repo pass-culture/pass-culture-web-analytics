@@ -1,0 +1,19 @@
+dist: xenial
+language: python
+python:
+  "3.7"
+
+# Use container-based infrastructure for quicker build start-up
+sudo: false
+
+before_install:
+  - git clone https://github.com/piwik/piwik-package.git tmp/piwik-package
+  - composer install
+  - yarn install
+
+script:
+ - 'shellcheck *.sh'
+ - python tests.py
+
+matrix:
+  fast_finish: true
