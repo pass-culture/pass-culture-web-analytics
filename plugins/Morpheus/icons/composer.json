@@ -1,0 +1,11 @@
+{
+    "config": {
+        "preferred-install": "source"
+    },
+    "require-dev": {
+    },
+    "require": {
+        "matomo/searchengine-and-social-list": "dev-master",
+        "piwik/device-detector": "dev-master"
+    }
+}

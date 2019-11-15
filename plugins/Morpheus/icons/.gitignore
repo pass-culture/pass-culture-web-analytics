@@ -1,0 +1,8 @@
+.idea/
+*.log
+vendor/
+tmp
+finished.txt
+__pycache__/
+composer.lock
+node_modules/
