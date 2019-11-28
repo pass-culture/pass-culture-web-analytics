@@ -11,13 +11,15 @@
 
 ## Note about this repository
 
-This repository is a fork maintained by Scalingo in order to ensure easy deployment on the hosting platform.
+This repository is a fork maintained by `Scalingo` in order to ensure easy deployment on the hosting platform.
 
 Three additional plugins have been added additionally to the standard distribution:
 
 * EnvironmentVariables: To let you configure your instance through the environment and not through files to respect the 12 factor. [https://github.com/matomo-org/plugin-EnvironmentVariables](https://github.com/matomo-org/plugin-EnvironmentVariables)
 * DbCommands: Written by us to initialize the database with a console command: `database:create-tables`
 * AdminCommands: Written by us to create a super user or a site: `admin:create-superuser` or `admin:create-site`
+
+![Scalingo Matomo installed version : 3.13.0](https://img.shields.io/static/v1?label=Scalingo%20Matomo%20installed%20version&message=3.13.0&color=informational)
 
 You can deploy your own version of Matomo with this button:
 
