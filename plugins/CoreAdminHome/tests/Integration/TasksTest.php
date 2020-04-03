@@ -2,7 +2,7 @@
 /**
  * Piwik - free/libre analytics platform
  *
- * @link http://piwik.org
+ * @link https://matomo.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  */
 namespace Piwik\Plugins\CoreAdminHome\tests\Integration;
@@ -17,6 +17,9 @@ use Piwik\Plugins\CoreAdminHome\Emails\JsTrackingCodeMissingEmail;
 use Piwik\Plugins\CoreAdminHome\Emails\TrackingFailuresEmail;
 use Piwik\Plugins\CoreAdminHome\Tasks;
 use Piwik\Plugins\CoreAdminHome\Tasks\ArchivesToPurgeDistributedList;
+use Piwik\Plugins\CustomDimensions\CustomDimensions;
+use Piwik\Plugins\CustomDimensions\Dao\Configuration;
+use Piwik\Plugins\SegmentEditor\Model;
 use Piwik\Scheduler\Task;
 use Piwik\Tests\Fixtures\RawArchiveDataWithTempAndInvalidated;
 use Piwik\Tests\Framework\Fixture;
@@ -129,8 +132,10 @@ class TasksTest extends IntegrationTestCase
         $tasks = array_map(function (Task $task) { return $task->getMethodName() . '.' . $task->getMethodParameter(); }, $tasks);
 
         $expected = [
+            'invalidateOutdatedArchives.',
             'purgeOutdatedArchives.',
             'purgeInvalidatedArchives.',
+            'purgeOrphanedArchives.',
             'optimizeArchiveTable.',
             'cleanupTrackingFailures.',
             'notifyTrackingFailures.',

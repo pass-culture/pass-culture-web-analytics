@@ -2,7 +2,7 @@
 /**
  * Piwik - free/libre analytics platform
  *
- * @link http://piwik.org
+ * @link https://matomo.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
  */
@@ -71,11 +71,13 @@ class LogDataPurger
         $logTables = self::getDeleteTableLogTables();
 
         // delete unused actions from the log_action table (but only if we can lock tables)
-        if ($deleteUnusedLogActions && Db::isLockPrivilegeGranted()) {
-            $this->rawLogDao->deleteUnusedLogActions();
-        } else {
-            $logMessage = get_class($this) . ": LOCK TABLES privilege not granted; skipping unused actions purge";
-            Log::warning($logMessage);
+        if ($deleteUnusedLogActions) {
+            if (Db::isLockPrivilegeGranted()) {
+                $this->rawLogDao->deleteUnusedLogActions();
+            } else {
+                $logMessage = get_class($this) . ": LOCK TABLES privilege not granted; skipping unused actions purge";
+                Log::warning($logMessage);
+            }
         }
 
         /**

@@ -2,15 +2,16 @@
 /**
  * Piwik - free/libre analytics platform
  *
- * @link http://piwik.org
+ * @link https://matomo.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
  */
 namespace Piwik\Tracker;
 
 use Piwik\Config;
+use Piwik\Container\StaticContainer;
 use Piwik\Tracker;
-use Piwik\DeviceDetectorFactory;
+use Piwik\DeviceDetector\DeviceDetectorFactory;
 use Piwik\SettingsPiwik;
 
 class Settings // TODO: merge w/ visitor recognizer or make it it's own service. the class name is required for BC.
@@ -37,10 +38,10 @@ class Settings // TODO: merge w/ visitor recognizer or make it it's own service.
 
         $userAgent = $request->getUserAgent();
 
-        $deviceDetector = DeviceDetectorFactory::getInstance($userAgent);
+        $deviceDetector = StaticContainer::get(DeviceDetectorFactory::class)->makeInstance($userAgent);
         $aBrowserInfo   = $deviceDetector->getClient();
 
-        if ($aBrowserInfo['type'] != 'browser') {
+        if (empty($aBrowserInfo['type']) || 'browser' !== $aBrowserInfo['type']) {
             // for now only track browsers
             unset($aBrowserInfo);
         }

@@ -35,6 +35,7 @@ class VisitsWithAllActionsAndDevices extends Fixture
         $t->setTokenAuth(self::getTokenAuth());
 
         $t->setUserId('X4F66G776HGI');
+        $t->setVisitorId(substr(sha1('X4F66G776HGI'), 0, 16));
 
         // smart display
         $this->trackDeviceVisit($t, Date::factory($this->dateTime)->addHour(0)->getDatetime(), 'Mozilla/5.0 (Linux; U; Android 4.0.4; de-de; VSD220 Build/IMM76D.UI23ED12_VSC) AppleWebKit/534.30 (KHTML, like Gecko) Version/4.0 Safari/534.30');
@@ -223,5 +224,8 @@ class VisitsWithAllActionsAndDevices extends Fixture
         self::checkResponse($t->doTrackPageView('home'));
 
         $t->doTrackContentImpression('product slider', 'product_16.jpg', 'http://example.org/product16');
+        $t->doTrackContentImpression('product slider', 'product_17.jpg', 'http://example.org/product17');
+        $t->doTrackContentImpression('product slider', 'product_18.jpg', 'http://example.org/product18');
+        $t->doTrackContentImpression('product zoom', 'product_18.jpg', 'http://example.org/product18');
     }
 }

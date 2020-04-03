@@ -2,13 +2,15 @@
 /**
  * Piwik - free/libre analytics platform
  *
- * @link http://piwik.org
+ * @link https://matomo.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  */
 
 namespace Piwik;
 
+use Piwik\Container\StaticContainer;
 use Piwik\Exception\ErrorException;
+use Psr\Log\LoggerInterface;
 
 /**
  * Piwik's error handler function.
@@ -159,8 +161,12 @@ class ErrorHandler
             case E_DEPRECATED:
             case E_USER_DEPRECATED:
             default:
+                $context = array('trace' => debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 15));
                 try {
-                    Log::warning(self::createLogMessage($errno, $errstr, $errfile, $errline));
+                    StaticContainer::get(LoggerInterface::class)->warning(
+                        self::createLogMessage($errno, $errstr, $errfile, $errline),
+                        $context
+                    );
                 } catch (\Exception $ex) {
                     // ignore (it's possible for this to happen if the StaticContainer hasn't been created yet)
                 }

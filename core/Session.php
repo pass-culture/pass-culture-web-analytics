@@ -2,7 +2,7 @@
 /**
  * Piwik - free/libre analytics platform
  *
- * @link http://piwik.org
+ * @link https://matomo.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
  */
@@ -12,6 +12,7 @@ use Exception;
 use Piwik\Container\StaticContainer;
 use Piwik\Exception\MissingFilePermissionException;
 use Piwik\Session\SaveHandler\DbTable;
+use Psr\Log\LoggerInterface;
 use Zend_Session;
 
 /**
@@ -49,10 +50,15 @@ class Session extends Zend_Session
         if (headers_sent()
             || self::$sessionStarted
             || (defined('PIWIK_ENABLE_SESSION_START') && !PIWIK_ENABLE_SESSION_START)
+            || session_status() == PHP_SESSION_ACTIVE
         ) {
             return;
         }
         self::$sessionStarted = true;
+    
+        if (defined('PIWIK_SESSION_NAME')) {
+            self::$sessionName = PIWIK_SESSION_NAME;
+        }
 
         $config = Config::getInstance();
 
@@ -132,7 +138,10 @@ class Session extends Zend_Session
             parent::start();
             register_shutdown_function(array('Zend_Session', 'writeClose'), true);
         } catch (Exception $e) {
-            Log::error('Unable to start session: ' . $e->getMessage());
+            StaticContainer::get(LoggerInterface::class)->error('Unable to start session: {exception}', [
+                'exception' => $e,
+                'ignoreInScreenWriter' => true,
+            ]);
 
             if (SettingsPiwik::isPiwikInstalled()) {
                 $pathToSessions = '';
@@ -165,11 +174,73 @@ class Session extends Zend_Session
 
     public static function close()
     {
-        parent::writeClose();
+        if (self::isSessionStarted()) {
+            // only write/close session if the session was actually started by us
+            // otherwise we will set the session values to base64 encoded and whoever the session started might not expect the values in that way
+            parent::writeClose();
+        }
     }
 
     public static function isSessionStarted()
     {
         return self::$sessionStarted;
+    }
+
+    public static function getSameSiteCookieValue()
+    {
+        $config = Config::getInstance();
+        $general = $config->General;
+
+        $module = Piwik::getModule();
+        $action = Piwik::getAction();
+
+        $isOptOutRequest = $module == 'CoreAdminHome' && $action == 'optOut';
+        $isOverlay = $module == 'Overlay';
+        $shouldUseNone = !empty($general['enable_framed_pages']) || $isOptOutRequest || $isOverlay;
+
+        if ($shouldUseNone && ProxyHttp::isHttps()) {
+            return 'None';
+        }
+
+        return 'Lax';
+    }
+
+    /**
+     * Write cookie header.  Similar to the native setcookie() function but also supports
+     * the SameSite cookie property.
+     * @param $name
+     * @param $value
+     * @param int $expires
+     * @param string $path
+     * @param string $domain
+     * @param bool $secure
+     * @param bool $httpOnly
+     * @param string $sameSite
+     * @return string
+     */
+    public static function writeCookie($name, $value, $expires = 0, $path = '/', $domain = '/', $secure = false, $httpOnly = false, $sameSite = 'lax')
+    {
+        $headerStr = 'Set-Cookie: ' . rawurlencode($name) . '=' . rawurlencode($value);
+        if ($expires) {
+            $headerStr .= '; expires=' . gmdate('D, d-M-Y H:i:s', $expires) . ' GMT';
+        }
+        if ($path) {
+            $headerStr .= '; path=' . $path;
+        }
+        if ($domain) {
+            $headerStr .= '; domain=' . rawurlencode($domain);
+        }
+        if ($secure) {
+            $headerStr .= '; secure';
+        }
+        if ($httpOnly) {
+            $headerStr .= '; httponly';
+        }
+        if ($sameSite) {
+            $headerStr .= '; SameSite=' . $sameSite;
+        }
+
+        Common::sendHeader($headerStr);
+        return $headerStr;
     }
 }

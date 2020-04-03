@@ -2,7 +2,7 @@
 /**
  * Piwik - free/libre analytics platform
  *
- * @link http://piwik.org
+ * @link https://matomo.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
  */
@@ -87,7 +87,8 @@ class ReportTotalsCalculator extends DataTableManipulator
         $firstLevelTable = $this->makeSureToWorkOnFirstLevelDataTable($dataTable);
 
         if (!$firstLevelTable->getRowsCount()
-            || $firstLevelTable->getTotalsRow()
+            || $dataTable->getTotalsRow()
+            || $dataTable->getMetadata('totals')
         ) {
             return $dataTable;
         }
@@ -147,8 +148,10 @@ class ReportTotalsCalculator extends DataTableManipulator
             $dataTable->setMetadata('totals', $totals);
 
             if (1 === Common::getRequestVar('keep_totals_row', 0, 'integer', $this->request)) {
+                $totalLabel = Common::getRequestVar('keep_totals_row_label', Piwik::translate('General_Totals'), 'string', $this->request);
+
                 $row->deleteMetadata(false);
-                $row->setColumn('label', Piwik::translate('General_Totals'));
+                $row->setColumn('label', $totalLabel);
                 $dataTable->setTotalsRow($row);
             }
         }

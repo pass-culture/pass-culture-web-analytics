@@ -2,7 +2,7 @@
 /**
  * Piwik - free/libre analytics platform
  *
- * @link http://piwik.org
+ * @link https://matomo.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
  */
@@ -320,21 +320,21 @@ class API extends \Piwik\Plugin\API
             return array(false, false);
         }
 
-        // if the range is just a normal period (or the period is a range in which case lastN is ignored)
-        if ($lastN === false
-            || $period == 'range'
-        ) {
-            if ($period == 'range') {
-                $oPeriod = new Range('day', $date);
-            } else {
-                $oPeriod = Period\Factory::build($period, Date::factory($date));
-            }
+        $isMultiplePeriod = Range::isMultiplePeriod($date, $period);
 
+        // if the range is just a normal period (or the period is a range in which case lastN is ignored)
+        if ($period == 'range') {
+            $oPeriod = new Range('day', $date);
             $startDate = $oPeriod->getDateStart();
             $endDate = $oPeriod->getDateEnd();
-        } else // if the range includes the last N periods
-        {
-            list($date, $lastN) = EvolutionViz::getDateRangeAndLastN($period, $date, $lastN);
+        } else if ($lastN == false && !$isMultiplePeriod) {
+            $oPeriod = Period\Factory::build($period, Date::factory($date));
+            $startDate = $oPeriod->getDateStart();
+            $endDate = $oPeriod->getDateEnd();
+        } else { // if the range includes the last N periods or is a multiple period
+            if (!$isMultiplePeriod) {
+                list($date, $lastN) = EvolutionViz::getDateRangeAndLastN($period, $date, $lastN);
+            }
             list($startDate, $endDate) = explode(',', $date);
 
             $startDate = Date::factory($startDate);

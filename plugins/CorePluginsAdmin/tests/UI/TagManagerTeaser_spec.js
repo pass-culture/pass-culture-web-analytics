@@ -10,12 +10,12 @@
 describe("TagManagerTeaser", function () {
     this.timeout(0);
 
-    var urlBase = '?module=CorePluginsAdmin&action=tagManagerTeaser&idSite=1&period=day&date=2010-01-03',
+    var urlBase = '?module=CorePluginsAdmin&action=tagManagerTeaser&idSite=1&period=day&date=2019-01-03',
         pageSelector = '.activateTagManager';
 
     function setPluginsToLoad(plugins)
     {
-        testEnvironment.pluginsToLoad = plugins
+        testEnvironment.pluginsToLoad = plugins;
         testEnvironment.save();
     }
 
@@ -49,44 +49,34 @@ describe("TagManagerTeaser", function () {
 
     afterEach(reset);
 
-    function capturePage(done, screenshotName, test, selector)
-    {
-        if (!selector) {
-            selector = pageSelector;
-        }
-        expect.screenshot(screenshotName).to.be.captureSelector(selector, test, done);
-    }
-
-    it('should show teaser to super user', function (done) {
+    it('should show teaser to super user', async function () {
         unloadTagManager();
-        capturePage(done, 'superuser_page', function (page) {
-            unloadTagManager();
-            page.load(urlBase);
-        });
+        await page.goto(urlBase);
+        expect(await page.screenshotSelector(pageSelector)).to.matchImage('superuser_page');
     });
 
-    it('should be possible to activate plugin and redirect to tag manager', function (done) {
-        capturePage(done, 'super_user_activate_plugin', function (page) {
-            page.click('.activateTagManager .activateTagManagerPlugin');
-        }, '.pageWrap');
+    it('should be possible to activate plugin and redirect to tag manager', async function () {
+        await page.click('.activateTagManager .activateTagManagerPlugin');
+        await page.waitForNetworkIdle();
+        await page.waitFor(250);
+        expect(await page.screenshotSelector('.pageWrap')).to.matchImage('super_user_activate_plugin');
     });
 
-    it('should show teaser to admin', function (done) {
+    it('should show teaser to admin', async function () {
         unloadTagManager();
         setAdminUser();
-        capturePage(done, 'admin_page', function (page) {
-            unloadTagManager();
-            setAdminUser();
-            page.load(urlBase);
-        });
+        await page.goto(urlBase);
+        expect(await page.screenshotSelector(pageSelector)).to.matchImage('admin_page');
     });
 
-    it('should be possible to disable page and redirect to home', function (done) {
-        capturePage(done, 'admin_page_disable', function (page) {
-            unloadTagManager();
-            setAdminUser();
-            page.click('.activateTagManager .dontShowAgainBtn');
-        }, '.pageWrap');
+    it('should be possible to disable page and redirect to home', async function () {
+        unloadTagManager();
+        setAdminUser();
+        await page.click('.activateTagManager .dontShowAgainBtn');
+        await page.waitForNetworkIdle();
+        await page.waitFor('.widget');
+        await page.waitForNetworkIdle();
+        expect(await page.screenshotSelector('.pageWrap')).to.matchImage('admin_page_disable');
     });
 
 });

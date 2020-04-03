@@ -2,7 +2,7 @@
 /**
  * Piwik - free/libre analytics platform
  *
- * @link http://piwik.org
+ * @link https://matomo.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
  */
@@ -100,37 +100,11 @@ class Mail extends Zend_Mail
      */
     private function initSmtpTransport()
     {
-        $mailConfig = Config::getInstance()->mail;
-
-        if (empty($mailConfig['host'])
-            || $mailConfig['transport'] != 'smtp'
-        ) {
+        $tr = StaticContainer::get('Zend_Mail_Transport_Abstract');
+        if (empty($tr)) {
             return;
         }
 
-        $smtpConfig = array();
-        if (!empty($mailConfig['type'])) {
-            $smtpConfig['auth'] = strtolower($mailConfig['type']);
-        }
-
-        if (!empty($mailConfig['username'])) {
-            $smtpConfig['username'] = $mailConfig['username'];
-        }
-
-        if (!empty($mailConfig['password'])) {
-            $smtpConfig['password'] = $mailConfig['password'];
-        }
-
-        if (!empty($mailConfig['encryption'])) {
-            $smtpConfig['ssl'] = $mailConfig['encryption'];
-        }
-        
-        if (!empty($mailConfig['port'])) {
-            $smtpConfig['port'] = $mailConfig['port'];
-        }
-
-        $host = trim($mailConfig['host']);
-        $tr = new \Zend_Mail_Transport_Smtp($host, $smtpConfig);
         Mail::setDefaultTransport($tr);
     }
 
@@ -173,11 +147,7 @@ class Mail extends Zend_Mail
         return parent::setSubject($subject);
     }
 
-    /**
-     * @param string $email
-     * @return string
-     */
-    protected function parseDomainPlaceholderAsPiwikHostName($email)
+    public function getMailHost()
     {
         $hostname  = Config::getInstance()->mail['defaultHostnameIfEmpty'];
         $piwikHost = Url::getCurrentHost($hostname);
@@ -188,7 +158,16 @@ class Mail extends Zend_Mail
         if ($this->isHostDefinedAndNotLocal($url)) {
             $piwikHost = $url['host'];
         }
+        return $piwikHost;
+    }
 
+    /**
+     * @param string $email
+     * @return string
+     */
+    protected function parseDomainPlaceholderAsPiwikHostName($email)
+    {
+        $piwikHost = $this->getMailHost();
         return str_replace('{DOMAIN}', $piwikHost, $email);
     }
 
@@ -217,7 +196,9 @@ class Mail extends Zend_Mail
 
     private function shouldSendMail()
     {
-        if (!Config::getInstance()->General['emails_enabled']) {
+        $config = Config::getInstance();
+        $general = $config->General;
+        if (empty($general['emails_enabled'])) {
             return false;
         }
 

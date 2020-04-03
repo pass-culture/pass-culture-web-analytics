@@ -2,17 +2,21 @@
 /**
  * Piwik - free/libre analytics platform
  *
- * @link http://piwik.org
+ * @link https://matomo.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
  */
 namespace Piwik\Plugins\CoreAdminHome;
 
 use Piwik\API\Request;
+use Piwik\Archive;
+use Piwik\Archive\ArchiveInvalidator;
 use Piwik\ArchiveProcessor\Rules;
 use Piwik\Archive\ArchivePurger;
+use Piwik\Common;
 use Piwik\Config;
 use Piwik\Container\StaticContainer;
+use Piwik\CronArchive;
 use Piwik\DataAccess\ArchiveTableCreator;
 use Piwik\Date;
 use Piwik\Db;
@@ -22,6 +26,7 @@ use Piwik\Piwik;
 use Piwik\Plugins\CoreAdminHome\Emails\JsTrackingCodeMissingEmail;
 use Piwik\Plugins\CoreAdminHome\Emails\TrackingFailuresEmail;
 use Piwik\Plugins\CoreAdminHome\Tasks\ArchivesToPurgeDistributedList;
+use Piwik\Plugins\SegmentEditor\Model;
 use Piwik\Plugins\SitesManager\SitesManager;
 use Piwik\Scheduler\Schedule\SpecificTime;
 use Piwik\Settings\Storage\Backend\MeasurableSettingsTable;
@@ -58,14 +63,20 @@ class Tasks extends \Piwik\Plugin\Tasks
 
     public function schedule()
     {
+        // for browser triggered archiving, make sure we invalidate archives once a day just to make
+        // sure all archives that need to be invalidated get invalidated
+        $this->daily('invalidateOutdatedArchives', null, self::HIGH_PRIORITY);
+
         // general data purge on older archive tables, executed daily
         $this->daily('purgeOutdatedArchives', null, self::HIGH_PRIORITY);
 
         // general data purge on invalidated archive records, executed daily
         $this->daily('purgeInvalidatedArchives', null, self::LOW_PRIORITY);
 
+        $this->weekly('purgeOrphanedArchives', null, self::NORMAL_PRIORITY);
+
         // lowest priority since tables should be optimized after they are modified
-        $this->daily('optimizeArchiveTable', null, self::LOWEST_PRIORITY);
+        $this->monthly('optimizeArchiveTable', null, self::LOWEST_PRIORITY);
 
         $this->daily('cleanupTrackingFailures', null, self::LOWEST_PRIORITY);
         $this->weekly('notifyTrackingFailures', null, self::LOWEST_PRIORITY);
@@ -75,6 +86,17 @@ class Tasks extends \Piwik\Plugin\Tasks
         }
 
         $this->scheduleTrackingCodeReminderChecks();
+    }
+
+    public function invalidateOutdatedArchives()
+    {
+        if (!Rules::isBrowserTriggerEnabled()) {
+            $this->logger->info("Browser triggered archiving disabled, archives will be invalidated during core:archive.");
+            return;
+        }
+
+        $cronArchive = new CronArchive();
+        $cronArchive->invalidateArchivedReportsForSitesThatNeedToBeArchivedAgain();
     }
 
     private function scheduleTrackingCodeReminderChecks()
@@ -108,7 +130,11 @@ class Tasks extends \Piwik\Plugin\Tasks
     {
         $this->rememberTrackingCodeReminderRan($idSite);
 
-        if (!SitesManager::hasTrackedAnyTraffic($idSite)) {
+        if (!SitesManager::shouldPerormEmptySiteCheck($idSite)) {
+            return;
+        }
+
+        if (SitesManager::hasTrackedAnyTraffic($idSite)) {
             return;
         }
 
@@ -170,7 +196,8 @@ class Tasks extends \Piwik\Plugin\Tasks
     public function notifyTrackingFailures()
     {
         $failures = $this->trackingFailures->getAllFailures();
-        if (!empty($failures)) {
+        $general = Config::getInstance()->General;
+        if (!empty($failures) && $general['enable_tracking_failures_notification']) {
             $superUsers = Piwik::getAllSuperUserAccessEmailAddresses();
             foreach ($superUsers as $login => $email) {
                 $email = new TrackingFailuresEmail($login, $email, count($failures));
@@ -256,6 +283,36 @@ class Tasks extends \Piwik\Plugin\Tasks
         }
 
         Option::set(ReferrerSpamFilter::OPTION_STORAGE_NAME, serialize($list));
+    }
+
+    /**
+     * To test execute the following command:
+     * `./console core:run-scheduled-tasks "Piwik\Plugins\CoreAdminHome\Tasks.purgeOrphanedArchives"`
+     *
+     * @throws \Exception
+     */
+    public function purgeOrphanedArchives()
+    {
+        $eightDaysAgo = Date::factory('now')->subDay(8);
+        $model = new Model();
+        $deletedSegments = $model->getSegmentsDeletedSince($eightDaysAgo);
+
+        $archiveTables = ArchiveTableCreator::getTablesArchivesInstalled('numeric');
+
+        $datesPurged = array();
+        foreach ($archiveTables as $table) {
+            $date = ArchiveTableCreator::getDateFromTableName($table);
+            list($year, $month) = explode('_', $date);
+
+            $dateObj = Date::factory("$year-$month-15");
+
+            $this->archivePurger->purgeDeletedSiteArchives($dateObj);
+            if (count($deletedSegments)) {
+                $this->archivePurger->purgeDeletedSegmentArchives($dateObj, $deletedSegments);
+            }
+
+            $datesPurged[$date] = true;
+        }
     }
 
     /**

@@ -145,9 +145,7 @@ widgetsHelper.getWidgetNameFromUniqueId = function (uniqueId, callback) {
  */
 widgetsHelper.loadWidgetAjax = function (widgetUniqueId, widgetParameters, onWidgetLoadedCallback, onWidgetErrorCallback) {
     var disableLink = broadcast.getValueFromUrl('disableLink');
-    if (disableLink.length) {
-        widgetParameters['disableLink'] = disableLink;
-    }
+    widgetParameters['disableLink'] = disableLink.length || $('body#standalone').length;
 
     widgetParameters['widget'] = 1;
 
@@ -329,7 +327,7 @@ widgetsHelper.loadWidgetAjax = function (widgetUniqueId, widgetParameters, onWid
                     var widgetUniqueId = widgets[j]["uniqueId"];
                     var widgetCategoryId = widgets[j].category ? widgets[j].category.id : null;
                     var widgetClass = '';
-                    if (!settings.isWidgetAvailable(widgetUniqueId) && widgetCategoryId !== 'General_Generic') {
+                    if (!settings.isWidgetAvailable(widgetUniqueId) && widgetCategoryId !== 'General_KpiMetric') {
                         widgetClass += ' ' + settings.unavailableClass;
                     }
 

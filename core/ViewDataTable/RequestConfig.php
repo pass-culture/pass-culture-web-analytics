@@ -2,12 +2,13 @@
 /**
  * Piwik - free/libre analytics platform
  *
- * @link http://piwik.org
+ * @link https://matomo.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
  */
 
 namespace Piwik\ViewDataTable;
+use Piwik\Common;
 
 
 /**
@@ -94,7 +95,10 @@ class RequestConfig
         'expanded',
         'pivotBy',
         'pivotByColumn',
-        'pivotByColumnLimit'
+        'pivotByColumnLimit',
+        'compareSegments',
+        'comparePeriods',
+        'compareDates',
     );
 
     /**
@@ -116,7 +120,10 @@ class RequestConfig
         'expanded',
         'pivotBy',
         'pivotByColumn',
-        'pivotByColumnLimit'
+        'pivotByColumnLimit',
+        'compareSegments',
+        'comparePeriods',
+        'compareDates',
     );
 
     /**
@@ -271,6 +278,27 @@ class RequestConfig
      */
     public $pivotByColumnLimit = false;
 
+    /**
+     * List of segments to compare with. Defaults to segments used in `compareSegments[]` query parameter.
+     *
+     * @var array
+     */
+    public $compareSegments = [];
+
+    /**
+     * List of period labels to compare with. Defaults to values used in `comparePeriods[]` query parameter.
+     *
+     * @var array
+     */
+    public $comparePeriods = [];
+
+    /**
+     * List of period dates to compare with. Defaults to values used in `compareDates[]` query parameter.
+     *
+     * @var array
+     */
+    public $compareDates = [];
+
     public function getProperties()
     {
         return get_object_vars($this);
@@ -344,5 +372,25 @@ class RequestConfig
         list($module, $method) = explode('.', $this->apiMethodToRequestDataTable);
 
         return $method;
+    }
+
+    public function getRequestParam($paramName)
+    {
+        if (isset($this->request_parameters_to_modify[$paramName])) {
+            return $this->request_parameters_to_modify[$paramName];
+        }
+
+        return Common::getRequestVar($paramName, false);
+    }
+
+    /**
+     * Override this method if you want to add custom request parameters to the API request based on ViewDataTable
+     * parameters. Return in the result the list of extra parameters.
+     *
+     * @return array eg, `['mycustomparam']`
+     */
+    public function getExtraParametersToSet()
+    {
+        return [];
     }
 }

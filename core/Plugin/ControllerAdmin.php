@@ -2,7 +2,7 @@
 /**
  * Piwik - free/libre analytics platform
  *
- * @link http://piwik.org
+ * @link https://matomo.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
  */
@@ -53,6 +53,10 @@ abstract class ControllerAdmin extends Controller
         }
 
         if (!Piwik::isUserHasSomeAdminAccess()) {
+            return;
+        }
+
+        if (Development::isEnabled()) {
             return;
         }
 
@@ -123,13 +127,14 @@ abstract class ControllerAdmin extends Controller
      * using the supplied view.
      *
      * @param View $view
-     * @api
+     * @param string $viewType If 'admin', the admin variables are set as well as basic ones.
      */
-    protected function setBasicVariablesView($view)
+    protected function setBasicVariablesViewAs($view, $viewType = 'admin')
     {
         $this->setBasicVariablesNoneAdminView($view);
-
-        self::setBasicVariablesAdminView($view);
+        if ($viewType == 'admin') {
+            self::setBasicVariablesAdminView($view);
+        }
     }
 
     private static function notifyIfURLIsNotSecure()
@@ -202,12 +207,12 @@ abstract class ControllerAdmin extends Controller
     }
 
     /**
-     * PHP Version required by the next major Piwik version
+     * PHP Version required by the next major Matomo version
      * @return string
      */
     private static function getNextRequiredMinimumPHP()
     {
-        return '5.5.9';
+        return '7.2';
     }
 
     private static function isUsingPhpVersionCompatibleWithNextPiwik()
@@ -217,8 +222,6 @@ abstract class ControllerAdmin extends Controller
 
     private static function notifyWhenPhpVersionIsNotCompatibleWithNextMajorPiwik()
     {
-        return; // no major version coming
-
         if (self::isUsingPhpVersionCompatibleWithNextPiwik()) {
             return;
         }
@@ -240,23 +243,28 @@ abstract class ControllerAdmin extends Controller
 
     private static function notifyWhenPhpVersionIsEOL()
     {
-        return; // no supported version (5.5+) has currently ended support
-        $notifyPhpIsEOL = Piwik::hasUserSuperUserAccess() && self::isPhpVersionAtLeast55();
+        if (defined('PIWIK_TEST_MODE')) { // to avoid changing every admin UI test
+            return;
+        }
+
+        $notifyPhpIsEOL = Piwik::hasUserSuperUserAccess() && ! self::isPhpVersionAtLeast71();
         if (!$notifyPhpIsEOL) {
             return;
         }
 
+        $deprecatedMajorPhpVersion = PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION;
         $message = Piwik::translate('General_WarningPiwikWillStopSupportingPHPVersion', array($deprecatedMajorPhpVersion, self::getNextRequiredMinimumPHP()))
-            . "\n "
+            . "<br/> "
             . Piwik::translate('General_WarningPhpVersionXIsTooOld', $deprecatedMajorPhpVersion);
 
         $notification = new Notification($message);
+        $notification->raw = true;
         $notification->title = Piwik::translate('General_Warning');
         $notification->priority = Notification::PRIORITY_LOW;
         $notification->context = Notification::CONTEXT_WARNING;
         $notification->type = Notification::TYPE_TRANSIENT;
         $notification->flags = Notification::FLAG_NO_CLEAR;
-        NotificationManager::notify('PHP54VersionCheck', $notification);
+        NotificationManager::notify('PHP71VersionCheck', $notification);
     }
 
     private static function notifyWhenDebugOnDemandIsEnabled($trackerSetting)
@@ -365,8 +373,8 @@ abstract class ControllerAdmin extends Controller
         return "Matomo " . Version::VERSION;
     }
 
-    private static function isPhpVersionAtLeast55()
+    private static function isPhpVersionAtLeast71()
     {
-        return version_compare(PHP_VERSION, '5.5', '>=');
+        return version_compare(PHP_VERSION, '7.1', '>=');
     }
 }

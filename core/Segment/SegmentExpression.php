@@ -2,7 +2,7 @@
 /**
  * Piwik - free/libre analytics platform
  *
- * @link http://piwik.org
+ * @link https://matomo.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
  */
@@ -73,6 +73,15 @@ class SegmentExpression
     protected $valuesBind = array();
     protected $tree = array();
     protected $parsedSubExpressions = array();
+
+    public function getSubExpressionCount()
+    {
+        $cleaned = array_filter($this->parsedSubExpressions, function ($part) {
+            $isExpressionColumnPresent = !empty($part[1][0]);
+            return $isExpressionColumnPresent;
+        });
+        return count($cleaned);
+    }
 
     /**
      * Given the array of parsed filters containing, for each filter,
@@ -315,8 +324,11 @@ class SegmentExpression
      */
     public static function parseColumnsFromSqlExpr($field)
     {
-        preg_match_all('/\b`?([a-zA-Z0-9_]+`?\.`?[a-zA-Z0-9_`]+)`?\b/', $field, $matches);
+        preg_match_all('/[^@a-zA-Z0-9_]?`?([@a-zA-Z_][@a-zA-Z0-9_]*`?\.`?[a-zA-Z0-9_`]+)`?\b/', $field, $matches);
         $result = isset($matches[1]) ? $matches[1] : [];
+        $result = array_filter($result, function ($value) { // remove uses of session vars
+            return strpos($value, '@') === false;
+        });
         $result = array_map(function ($item) {
             return str_replace('`', '', $item);
         }, $result);

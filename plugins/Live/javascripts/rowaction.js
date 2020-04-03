@@ -71,17 +71,28 @@
             segment = decodeURIComponent(this.dataTable.param.segment) + ';' + segment;
         }
 
+        if (this.dataTable.props.segmented_visitor_log_segment_suffix) {
+            segment = segment + ';' + this.dataTable.props.segmented_visitor_log_segment_suffix;
+        }
+
         this.performAction(segment, tr, e);
     };
 
-    DataTable_RowActions_SegmentVisitorLog.prototype.performAction = function (segment, tr, e) {
+    DataTable_RowActions_SegmentVisitorLog.prototype.performAction = function (segment, tr, e, originalRow) {
 
         var apiMethod = this.dataTable.param.module + '.' + this.dataTable.param.action;
 
         var extraParams = {};
+
         if (this.dataTable.param.date && this.dataTable.param.period) {
             extraParams = {date: this.dataTable.param.date, period: this.dataTable.param.period};
         }
+
+        var paramOverride = $(originalRow || tr).data('param-override');
+        if (typeof paramOverride !== 'object') {
+            paramOverride = {};
+        }
+        $.extend(extraParams, paramOverride);
 
         $.each(this.dataTable.param, function (index, value) {
             // we automatically add fields like idDimension, idGoal etc.
@@ -129,7 +140,7 @@
         },
 
         isAvailableOnRow: function (dataTableParams, tr) {
-            var value = getRawSegmentValueFromRow(tr)
+            var value = getRawSegmentValueFromRow(tr);
             if ('undefined' === (typeof value)) {
                 return false;
             }

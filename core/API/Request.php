@@ -2,7 +2,7 @@
 /**
  * Piwik - free/libre analytics platform
  *
- * @link http://piwik.org
+ * @link https://matomo.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
  */
@@ -12,6 +12,7 @@ use Exception;
 use Piwik\Access;
 use Piwik\Cache;
 use Piwik\Common;
+use Piwik\Container\StaticContainer;
 use Piwik\Context;
 use Piwik\DataTable;
 use Piwik\Exception\PluginDeactivatedException;
@@ -23,6 +24,7 @@ use Piwik\Plugins\CoreHome\LoginWhitelist;
 use Piwik\SettingsServer;
 use Piwik\Url;
 use Piwik\UrlHelper;
+use Psr\Log\LoggerInterface;
 
 /**
  * Dispatches API requests to the appropriate API method.
@@ -213,25 +215,26 @@ class Request
      */
     public function process()
     {
-        // read the format requested for the output data
-        $outputFormat = strtolower(Common::getRequestVar('format', 'xml', 'string', $this->request));
-
-        $disablePostProcessing = $this->shouldDisablePostProcessing();
-
-        // create the response
-        $response = new ResponseBuilder($outputFormat, $this->request);
-        if ($disablePostProcessing) {
-            $response->disableDataTablePostProcessor();
-        }
-
-        $corsHandler = new CORSHandler();
-        $corsHandler->handle();
-
-        $tokenAuth = Common::getRequestVar('token_auth', '', 'string', $this->request);
         $shouldReloadAuth = false;
 
         try {
             ++self::$nestedApiInvocationCount;
+
+            // read the format requested for the output data
+            $outputFormat = strtolower(Common::getRequestVar('format', 'xml', 'string', $this->request));
+
+            $disablePostProcessing = $this->shouldDisablePostProcessing();
+
+            // create the response
+            $response = new ResponseBuilder($outputFormat, $this->request);
+            if ($disablePostProcessing) {
+                $response->disableDataTablePostProcessor();
+            }
+
+            $corsHandler = new CORSHandler();
+            $corsHandler->handle();
+
+            $tokenAuth = Common::getRequestVar('token_auth', '', 'string', $this->request);
 
             // IP check is needed here as we cannot listen to API.Request.authenticate as it would then not return proper API format response.
             // We can also not do it by listening to API.Request.dispatch as by then the user is already authenticated and we want to make sure
@@ -269,8 +272,15 @@ class Request
                 return $response->getResponse($returnedValue, $module, $method);
             });
         } catch (Exception $e) {
-            Log::debug($e);
+            StaticContainer::get(LoggerInterface::class)->error('Uncaught exception in API: {exception}', [
+                'exception' => $e,
+                'ignoreInScreenWriter' => true,
+            ]);
 
+            if (empty($response)) {
+               $response = new ResponseBuilder('console', $this->request);
+            }
+            
             $toReturn = $response->getResponseException($e);
         } finally {
             --self::$nestedApiInvocationCount;
@@ -495,6 +505,7 @@ class Request
         $params['serialize'] = '0';
         $params['module'] = 'API';
         $params['method'] = $method;
+        $params['compare'] = '0';
         $params = $paramOverride + $params;
 
         // process request
@@ -550,6 +561,10 @@ class Request
                 }
             }
         }
+
+        $params['compareDates'] = null;
+        $params['comparePeriods'] = null;
+        $params['compareSegments'] = null;
 
         return Url::getCurrentQueryStringWithParametersModified($params);
     }
@@ -632,6 +647,11 @@ class Request
          * @param array $request The request parameters.
          */
         Piwik::postEvent('Request.shouldDisablePostProcessing', [&$shouldDisable, $this->request]);
+
+        if (!$shouldDisable) {
+            $shouldDisable = self::isCurrentApiRequestTheRootApiRequest() &&
+                Common::getRequestVar('disable_root_datatable_post_processor', 0, 'int', $this->request) == 1;
+        }
 
         return $shouldDisable;
     }

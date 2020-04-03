@@ -2,7 +2,7 @@
 /**
  * Piwik - free/libre analytics platform
  *
- * @link http://piwik.org
+ * @link https://matomo.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
  */
@@ -11,6 +11,8 @@ namespace Piwik;
 
 use Exception;
 use Piwik\Application\Kernel\GlobalSettingsProvider;
+use Piwik\Config\Cache;
+use Piwik\Config\IniFileChain;
 use Piwik\Container\StaticContainer;
 use Piwik\Exception\MissingFilePermissionException;
 use Piwik\ProfessionalServices\Advertising;
@@ -106,7 +108,7 @@ class Config
      */
     public static function getGlobalConfigPath()
     {
-        return PIWIK_USER_PATH . self::DEFAULT_GLOBAL_CONFIG_PATH;
+        return PIWIK_DOCUMENT_ROOT . self::DEFAULT_GLOBAL_CONFIG_PATH;
     }
 
     /**
@@ -120,27 +122,52 @@ class Config
     }
 
     /**
+     * Returns default absolute path to the local configuration file.
+     *
+     * @return string
+     */
+    public static function getDefaultLocalConfigPath()
+    {
+        return PIWIK_USER_PATH . self::DEFAULT_LOCAL_CONFIG_PATH;
+    }
+
+    /**
      * Returns absolute path to the local configuration file
      *
      * @return string
      */
     public static function getLocalConfigPath()
     {
+        if (!empty($GLOBALS['CONFIG_INI_PATH_RESOLVER']) && is_callable($GLOBALS['CONFIG_INI_PATH_RESOLVER'])) {
+            return call_user_func($GLOBALS['CONFIG_INI_PATH_RESOLVER']);
+        }
+        
         $path = self::getByDomainConfigPath();
         if ($path) {
             return $path;
         }
-        return PIWIK_USER_PATH . self::DEFAULT_LOCAL_CONFIG_PATH;
+        return self::getDefaultLocalConfigPath();
     }
 
     private static function getLocalConfigInfoForHostname($hostname)
     {
+        if (!$hostname) {
+            return array();
+        }
+
         // Remove any port number to get actual hostname
         $hostname = Url::getHostSanitized($hostname);
-        $perHostFilename  = $hostname . '.config.ini.php';
+        $standardConfigName = 'config.ini.php';
+        $perHostFilename  = $hostname . '.' . $standardConfigName;
         $pathDomainConfig = PIWIK_USER_PATH . '/config/' . $perHostFilename;
+        $pathDomainMiscUser = PIWIK_USER_PATH . '/misc/user/' . $hostname . '/' . $standardConfigName;
 
-        return array('file' => $perHostFilename, 'path' => $pathDomainConfig);
+        $locations = array(
+            array('file' => $perHostFilename, 'path' => $pathDomainConfig),
+            array('file' => $standardConfigName, 'path' => $pathDomainMiscUser)
+        );
+
+        return $locations;
     }
 
     public function getConfigHostnameIfSet()
@@ -180,13 +207,16 @@ class Config
     public static function getByDomainConfigPath()
     {
         $host       = self::getHostname();
-        $hostConfig = self::getLocalConfigInfoForHostname($host);
+        $hostConfigs = self::getLocalConfigInfoForHostname($host);
 
-        if (Filesystem::isValidFilename($hostConfig['file'])
-            && file_exists($hostConfig['path'])
-        ) {
-            return $hostConfig['path'];
+        foreach ($hostConfigs as $hostConfig) {
+            if (Filesystem::isValidFilename($hostConfig['file'])
+                && file_exists($hostConfig['path'])
+            ) {
+                return $hostConfig['path'];
+            }
         }
+
         return false;
     }
 
@@ -215,28 +245,41 @@ class Config
      *     $config->save();
      *
      * @param string $hostname eg piwik.example.com
+     * @param string $preferredPath If there are different paths for the config that can be used, eg /config/* and /misc/user/*,
+     *                              and a preferred path is given, then the config path must contain the preferred path.
      * @return string
      * @throws \Exception In case the domain contains not allowed characters
      * @internal
      */
-    public function forceUsageOfLocalHostnameConfig($hostname)
+    public function forceUsageOfLocalHostnameConfig($hostname, $preferredPath = null)
     {
-        $hostConfig = self::getLocalConfigInfoForHostname($hostname);
+        $hostConfigs = self::getLocalConfigInfoForHostname($hostname);
+        $fileNames = '';
 
-        $filename = $hostConfig['file'];
-        if (!Filesystem::isValidFilename($filename)) {
-            throw new Exception('Matomo domain is not a valid looking hostname (' . $filename . ').');
+        foreach ($hostConfigs as $hostConfig) {
+            if (count($hostConfigs) > 1
+                && $preferredPath
+                && strpos($hostConfig['path'], $preferredPath) === false) {
+                continue;
+            }
+
+            $filename = $hostConfig['file'];
+            $fileNames .= $filename . ' ';
+
+            if (Filesystem::isValidFilename($filename)) {
+                $pathLocal = $hostConfig['path'];
+
+                try {
+                    $this->reload($pathLocal);
+                } catch (Exception $ex) {
+                    // pass (not required for local file to exist at this point)
+                }
+
+                return $pathLocal;
+            }
         }
 
-        $pathLocal = $hostConfig['path'];
-
-        try {
-            $this->reload($pathLocal);
-        } catch (Exception $ex) {
-            // pass (not required for local file to exist at this point)
-        }
-
-        return $pathLocal;
+        throw new Exception('Matomo domain is not a valid looking hostname (' . trim($fileNames) . ').');
     }
 
     /**
@@ -366,16 +409,9 @@ class Config
     /**
      * Write user configuration file
      *
-     * @param array $configLocal
-     * @param array $configGlobal
-     * @param array $configCommon
-     * @param array $configCache
-     * @param string $pathLocal
-     * @param bool $clear
-     *
      * @throws \Exception if config file not writable
      */
-    protected function writeConfig($clear = true)
+    protected function writeConfig()
     {
         $output = $this->dumpConfig();
         if ($output !== null
@@ -394,16 +430,14 @@ class Config
                 throw $this->getConfigNotWritableException();
             }
 
+            $this->settings->getIniFileChain()->deleteConfigCache();
+
             /**
              * Triggered when a INI config file is changed on disk.
              *
              * @param string $localPath Absolute path to the changed file on the server.
              */
             Piwik::postEvent('Core.configFileChanged', [$localPath]);
-        }
-
-        if ($clear) {
-            $this->reload();
         }
     }
 

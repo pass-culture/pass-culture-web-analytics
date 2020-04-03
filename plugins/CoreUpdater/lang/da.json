@@ -1,6 +1,5 @@
 {
     "CoreUpdater": {
-        "ClickHereToViewSqlQueries": "Klik her for at se og kopiere listen over SQL-forespørgsler, der vil blive udført",
         "CriticalErrorDuringTheUpgradeProcess": "Kritisk fejl under opdateringen:",
         "DatabaseUpgradeRequired": "Database opdatering er nødvendig",
         "DisablingIncompatiblePlugins": "Deaktivere inkompatible programudvidelsen: %s",
@@ -26,8 +25,6 @@
         "InstallingTheLatestVersion": "Installerer den seneste version",
         "LatestBetaRelease": "Den seneste beta release",
         "LatestStableRelease": "Den seneste stabile udgave",
-        "Latest2XStableRelease": "Den seneste stabile 2.X",
-        "Latest2XBetaRelease": "Den seneste beta 2.X",
         "LtsSupportVersion": "Long Term Support version",
         "MajorUpdateWarning1": "Dette er en stor opdatering! Den vil tage længere tid end normalt.",
         "MajorUpdateWarning2": "Det følgende råd er især vigtigt for store installationer.",

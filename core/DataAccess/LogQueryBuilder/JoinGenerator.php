@@ -2,7 +2,7 @@
 /**
  * Piwik - free/libre analytics platform
  *
- * @link http://piwik.org
+ * @link https://matomo.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
  */
@@ -11,6 +11,7 @@ namespace Piwik\DataAccess\LogQueryBuilder;
 
 use Exception;
 use Piwik\Common;
+use Piwik\DataAccess\LogAggregator;
 use Piwik\Tracker\LogTable;
 
 class JoinGenerator
@@ -53,6 +54,19 @@ class JoinGenerator
             if (!$logTable->getColumnToJoinOnIdVisit()) {
                 $tableNameToJoin = $logTable->getLinkTableToBeAbleToJoinOnVisit();
 
+                if (empty($tableNameToJoin) && $logTable->getWaysToJoinToOtherLogTables()) {
+                    foreach ($logTable->getWaysToJoinToOtherLogTables() as $otherLogTable => $column) {
+                        if ($this->tables->hasJoinedTable($otherLogTable)) {
+                            $this->tables->addTableDependency($table, $otherLogTable);
+                            continue;
+                        }
+                        if ($this->tables->isTableJoinableOnVisit($otherLogTable) || $this->tables->isTableJoinableOnAction($otherLogTable)) {
+                            $this->addMissingTablesForOtherTableJoin($otherLogTable, $table);
+                        }
+                    }
+                    continue;
+                }
+
                 if ($index > 0 && !$this->tables->hasJoinedTable($tableNameToJoin)) {
                     $this->tables->addTableToJoin($tableNameToJoin);
                 }
@@ -94,6 +108,30 @@ class JoinGenerator
                 }
             }
         }
+    }
+
+    private function addMissingTablesForOtherTableJoin($tableName, $dependentTable)
+    {
+        $this->tables->addTableDependency($dependentTable, $tableName);
+
+        if ($this->tables->hasJoinedTable($tableName)) {
+            return;
+        }
+
+        $table = $this->tables->getLogTable($tableName);
+
+        if ($table->getColumnToJoinOnIdAction() || $table->getColumnToJoinOnIdVisit() || $table->getLinkTableToBeAbleToJoinOnVisit()) {
+            $this->tables->addTableToJoin($tableName);
+            return;
+        }
+
+        $otherTableJoins = $table->getWaysToJoinToOtherLogTables();
+
+        foreach ($otherTableJoins as $logTable => $column) {
+            $this->addMissingTablesForOtherTableJoin($logTable, $tableName);
+        }
+
+        $this->tables->addTableToJoin($tableName);
     }
 
     /**
@@ -153,8 +191,20 @@ class JoinGenerator
                     continue;
                 }
 
+                $joinName = 'LEFT JOIN';
+                if ($i > 0
+                    && $this->tables[$i - 1]
+                    && is_string($this->tables[$i - 1])
+                    && strpos($this->tables[$i - 1], LogAggregator::LOG_TABLE_SEGMENT_TEMPORARY_PREFIX) === 0) {
+                    $joinName = 'INNER JOIN';
+                    // when we archive a segment there will be eg `logtmpsegment$HASH` as first table.
+                    // then we join log_conversion for example... if we didn't use INNER JOIN we would as a result
+                    // get rows for visits even when they didn't have a conversion. Instead we only want to find rows
+                    // that have an entry in both tables when doing eg
+                    // logtmpsegment57cd546b7203d68a41027547c4abe1a2.idvisit = log_conversion.idvisit
+                }
                 // the join sql the default way
-                $this->joinString .= " LEFT JOIN $tableSql ON " . $join;
+                $this->joinString .= " $joinName $tableSql ON " . $join;
             }
 
             $availableLogTables[$table] = $logTable;
@@ -206,6 +256,15 @@ class JoinGenerator
 
                 break;
             }
+
+            $otherJoins = $logTable->getWaysToJoinToOtherLogTables();
+            foreach ($otherJoins as $joinTable => $column) {
+                if($availableLogTable->getName() == $joinTable) {
+                    $join = sprintf("`%s`.`%s` = `%s`.`%s`", $table, $column, $availableLogTable->getName(), $column);
+                    break;
+                }
+            }
+
         }
 
         if (!isset($join)) {
@@ -216,6 +275,10 @@ class JoinGenerator
             || $this->tables->hasJoinedTableManually($table, $alternativeJoin)) {
             // already joined, no need to join it again
             return null;
+        }
+
+        if ($table == 'log_conversion_item') { // by default we don't want to consider deleted columns
+            $join .= sprintf(' AND `%s`.deleted = 0', $table);
         }
 
         return $join;

@@ -2,35 +2,30 @@
 /**
  * Piwik - free/libre analytics platform
  *
- * @link http://piwik.org
+ * @link https://matomo.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
  */
 namespace Piwik\ArchiveProcessor;
 
-use Piwik\Archive;
+use Piwik\Archive\ArchiveInvalidator;
 use Piwik\Cache;
-use Piwik\CacheId;
-use Piwik\Common;
 use Piwik\Config;
+use Piwik\Container\StaticContainer;
 use Piwik\Context;
 use Piwik\DataAccess\ArchiveSelector;
+use Piwik\DataAccess\ArchiveTableCreator;
 use Piwik\Date;
-use Piwik\Period;
+use Piwik\Db;
 use Piwik\Piwik;
+use Piwik\Site;
+use Psr\Log\LoggerInterface;
 
 /**
  * This class uses PluginsArchiver class to trigger data aggregation and create archives.
  */
 class Loader
 {
-    /**
-     * Is the current archive temporary. ie.
-     * - today
-     * - current week / month / year
-     */
-    protected $temporaryArchive;
-
     /**
      * Idarchive in the DB for the requested archive
      *
@@ -43,9 +38,28 @@ class Loader
      */
     protected $params;
 
-    public function __construct(Parameters $params)
+    /**
+     * @var ArchiveInvalidator
+     */
+    private $invalidator;
+
+    /**
+     * @var \Piwik\Cache\Cache
+     */
+    private $cache;
+
+    /**
+     * @var LoggerInterface
+     */
+    private $logger;
+
+    public function __construct(Parameters $params, $invalidateBeforeArchiving = false)
     {
         $this->params = $params;
+        $this->invalidateBeforeArchiving = $invalidateBeforeArchiving;
+        $this->invalidator = StaticContainer::get(ArchiveInvalidator::class);
+        $this->cache = Cache::getTransientCache();
+        $this->logger = StaticContainer::get(LoggerInterface::class);
     }
 
     /**
@@ -75,17 +89,34 @@ class Loader
     {
         $this->params->setRequestedPlugin($pluginName);
 
-        list($idArchive, $visits, $visitsConverted) = $this->loadExistingArchiveIdFromDb();
-        if (!empty($idArchive)) {
+        list($idArchive, $visits, $visitsConverted, $isAnyArchiveExists) = $this->loadExistingArchiveIdFromDb();
+        if (!empty($idArchive)) { // we have a usable idarchive (it's not invalidated and it's new enough)
             return $idArchive;
         }
 
-        list($visits, $visitsConverted) = $this->prepareCoreMetricsArchive($visits, $visitsConverted);
-        list($idArchive, $visits) = $this->prepareAllPluginsArchive($visits, $visitsConverted);
+        // if there is an archive, but we can't use it for some reason, invalidate existing archives before
+        // we start archiving. if the archive is made invalid, we will correctly re-archive below.
+        if ($this->invalidateBeforeArchiving
+            && $isAnyArchiveExists
+        ) {
+            $this->invalidatedReportsIfNeeded();
+        }
+
+        /** @var ArchivingStatus $archivingStatus */
+        $archivingStatus = StaticContainer::get(ArchivingStatus::class);
+        $archivingStatus->archiveStarted($this->params);
+
+        try {
+            list($visits, $visitsConverted) = $this->prepareCoreMetricsArchive($visits, $visitsConverted);
+            list($idArchive, $visits) = $this->prepareAllPluginsArchive($visits, $visitsConverted);
+        } finally {
+            $archivingStatus->archiveFinished();
+        }
 
         if ($this->isThereSomeVisits($visits) || PluginsArchiver::doesAnyPluginArchiveWithoutVisits()) {
             return $idArchive;
         }
+
         return false;
     }
 
@@ -105,7 +136,7 @@ class Loader
 
             $this->params->setRequestedPlugin('VisitsSummary');
 
-            $pluginsArchiver = new PluginsArchiver($this->params, $this->isArchiveTemporary());
+            $pluginsArchiver = new PluginsArchiver($this->params);
             $metrics = $pluginsArchiver->callAggregateCoreMetrics();
             $pluginsArchiver->finalizeArchive();
 
@@ -120,7 +151,7 @@ class Loader
 
     protected function prepareAllPluginsArchive($visits, $visitsConverted)
     {
-        $pluginsArchiver = new PluginsArchiver($this->params, $this->isArchiveTemporary());
+        $pluginsArchiver = new PluginsArchiver($this->params);
 
         if ($this->mustProcessVisitCount($visits)
             || $this->doesRequestedPluginIncludeVisitsSummary()
@@ -165,26 +196,23 @@ class Loader
      * Returns the idArchive if the archive is available in the database for the requested plugin.
      * Returns false if the archive needs to be processed.
      *
+     * (public for tests)
+     *
      * @return array
      */
-    protected function loadExistingArchiveIdFromDb()
+    public function loadExistingArchiveIdFromDb()
     {
-        $noArchiveFound = array(false, false, false);
-
-        // see isArchiveTemporary()
-        $minDatetimeArchiveProcessedUTC = $this->getMinTimeArchiveProcessed();
-
         if ($this->isArchivingForcedToTrigger()) {
-            return $noArchiveFound;
+            $this->logger->debug("Archiving forced to trigger for {$this->params}.");
+
+            // return no usable archive found, and no existing archive. this will skip invalidation, which should
+            // be fine since we just force archiving.
+            return [false, false, false, false];
         }
 
-        $idAndVisits = ArchiveSelector::getArchiveIdAndVisits($this->params, $minDatetimeArchiveProcessedUTC);
-
-        if (!$idAndVisits) {
-            return $noArchiveFound;
-        }
-
-        return $idAndVisits;
+        $minDatetimeArchiveProcessedUTC = $this->getMinTimeArchiveProcessed();
+        $result = ArchiveSelector::getArchiveIdAndVisits($this->params, $minDatetimeArchiveProcessedUTC);
+        return $result;
     }
 
     /**
@@ -195,21 +223,16 @@ class Loader
     protected function getMinTimeArchiveProcessed()
     {
         $endDateTimestamp = self::determineIfArchivePermanent($this->params->getDateEnd());
-        $isArchiveTemporary = ($endDateTimestamp === false);
-        $this->temporaryArchive = $isArchiveTemporary;
-
         if ($endDateTimestamp) {
-            // Permanent archive
+            // past archive
             return $endDateTimestamp;
         }
-
         $dateStart = $this->params->getDateStart();
         $period    = $this->params->getPeriod();
         $segment   = $this->params->getSegment();
         $site      = $this->params->getSite();
-
-        // Temporary archive
-        return Rules::getMinTimeProcessedForTemporaryArchive($dateStart, $period, $segment, $site);
+        // in-progress archive
+        return Rules::getMinTimeProcessedForInProgressArchive($dateStart, $period, $segment, $site);
     }
 
     protected static function determineIfArchivePermanent(Date $dateEnd)
@@ -224,15 +247,6 @@ class Loader
         }
 
         return false;
-    }
-
-    protected function isArchiveTemporary()
-    {
-        if (is_null($this->temporaryArchive)) {
-            throw new \Exception("getMinTimeArchiveProcessed() should be called prior to isArchiveTemporary()");
-        }
-
-        return $this->temporaryArchive;
     }
 
     private function shouldArchiveForSiteEvenWhenNoVisits()
@@ -256,5 +270,47 @@ class Loader
         }
 
         return $cache->fetch($cacheKey);
+    }
+
+    // public for tests
+    public function getReportsToInvalidate()
+    {
+        $sitesPerDays = $this->invalidator->getRememberedArchivedReportsThatShouldBeInvalidated();
+
+        foreach ($sitesPerDays as $dateStr => $siteIds) {
+            if (empty($siteIds)
+                || !in_array($this->params->getSite()->getId(), $siteIds)
+            ) {
+                unset($sitesPerDays[$dateStr]);
+            }
+
+            $date = Date::factory($dateStr);
+            if ($date->isEarlier($this->params->getPeriod()->getDateStart())
+                || $date->isLater($this->params->getPeriod()->getDateEnd())
+            ) { // date in list is not the current date, so ignore it
+                unset($sitesPerDays[$dateStr]);
+            }
+        }
+
+        return $sitesPerDays;
+    }
+
+    private function invalidatedReportsIfNeeded()
+    {
+        $sitesPerDays = $this->getReportsToInvalidate();
+        if (empty($sitesPerDays)) {
+            return;
+        }
+
+        foreach ($sitesPerDays as $date => $siteIds) {
+            try {
+                $this->invalidator->markArchivesAsInvalidated([$this->params->getSite()->getId()], array(Date::factory($date)), false, $this->params->getSegment());
+            } catch (\Exception $e) {
+                Site::clearCache();
+                throw $e;
+            }
+        }
+
+        Site::clearCache();
     }
 }

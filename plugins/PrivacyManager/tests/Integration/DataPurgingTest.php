@@ -2,7 +2,7 @@
 /**
  * Piwik - free/libre analytics platform
  *
- * @link http://piwik.org
+ * @link https://matomo.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  */
 namespace Piwik\Plugins\PrivacyManager\tests\Integration;
@@ -10,6 +10,7 @@ namespace Piwik\Plugins\PrivacyManager\tests\Integration;
 use Piwik\Archive;
 use Piwik\Common;
 use Piwik\Config;
+use Piwik\Container\StaticContainer;
 use Piwik\DataAccess\RawLogDao;
 use Piwik\Date;
 use Piwik\Db;
@@ -740,9 +741,13 @@ class DataPurgingTest extends IntegrationTestCase
         $range = $rangeStart->toString('Y-m-d') . "," . $rangeEnd->toString('Y-m-d');
 
         $rangeArchive = Archive::build(self::$idSite, 'range', $range);
-        $rangeArchive->getNumeric('nb_visits', 'nb_hits');
+        $rangeArchive->getNumeric(['nb_visits']);
 
         APIVisitorInterest::getInstance()->getNumberOfVisitsPerVisitDuration(self::$idSite, 'range', $range);
+
+        // remove invalidated
+        StaticContainer::get(Archive\ArchivePurger::class)->purgeInvalidatedArchivesFrom(Date::factory('2012-01-01'));
+        StaticContainer::get(Archive\ArchivePurger::class)->purgeInvalidatedArchivesFrom(Date::factory('2012-02-01'));
 
         // when archiving is initiated, the archive metrics & reports for EVERY loaded plugin
         // are archived. don't want this test to depend on every possible metric, so get rid of

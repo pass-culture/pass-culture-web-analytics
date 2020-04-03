@@ -2,7 +2,7 @@
 /**
  * Piwik - free/libre analytics platform
  *
- * @link http://piwik.org
+ * @link https://matomo.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
  */
@@ -17,8 +17,6 @@ class LocationProviderTest extends \PHPUnit_Framework_TestCase
 {
     public function testGeoIP2City()
     {
-        GeoIp2::$geoIPDatabaseDir = 'tests/lib/geoip-files';
-
         $locationProvider = new GeoIp2\Php(['loc' => ['GeoIP2-City.mmdb'], 'isp' => []]);
         $result = $locationProvider->getLocation(['ip' => '194.57.91.215']);
 
@@ -36,10 +34,28 @@ class LocationProviderTest extends \PHPUnit_Framework_TestCase
         ], $result);
     }
 
+    public function testGeoIP2CityWithoutRegionIsoCode()
+    {
+        // The IP 99.99.99.99 will only return a region name, based on that the region code should be determined
+        $locationProvider = new GeoIp2\Php(['loc' => ['GeoIP2-City.mmdb'], 'isp' => []]);
+        $result = $locationProvider->getLocation(['ip' => '99.99.99.99']);
+
+        $this->assertEquals([
+            'continent_name' => 'North America',
+            'continent_code' => 'NA',
+            'country_code' => 'US',
+            'country_name' => 'United States',
+            'city_name' => 'Englewood Cliffs',
+            'lat' => 40.892,
+            'long' => -73.947,
+            'postal_code' => null,
+            'region_code' => 'NJ',
+            'region_name' => 'New Jersey',
+        ], $result);
+    }
+
     public function testGeoIP2Country()
     {
-        GeoIp2::$geoIPDatabaseDir = 'tests/lib/geoip-files';
-
         $locationProvider = new GeoIp2\Php(['loc' => ['GeoIP2-Country.mmdb'], 'isp' => []]);
         $result = $locationProvider->getLocation(['ip' => '194.57.91.215']);
 
@@ -53,8 +69,6 @@ class LocationProviderTest extends \PHPUnit_Framework_TestCase
 
     public function testGeoIP2ASN()
     {
-        GeoIp2::$geoIPDatabaseDir = 'tests/lib/geoip-files';
-
         $locationProvider = new GeoIp2\Php(['loc' => [], 'isp' => ['GeoLite2-ASN.mmdb']]);
         $result = $locationProvider->getLocation(['ip' => '194.57.91.215']);
 
@@ -66,8 +80,6 @@ class LocationProviderTest extends \PHPUnit_Framework_TestCase
 
     public function testGeoIP2ISP()
     {
-        GeoIp2::$geoIPDatabaseDir = 'tests/lib/geoip-files';
-
         $locationProvider = new GeoIp2\Php(['loc' => [], 'isp' => ['GeoIP2-ISP.mmdb']]);
         $result = $locationProvider->getLocation(['ip' => '194.57.91.215']);
 
@@ -79,8 +91,6 @@ class LocationProviderTest extends \PHPUnit_Framework_TestCase
 
     public function testGeoIP2CityAndISP()
     {
-        GeoIp2::$geoIPDatabaseDir = 'tests/lib/geoip-files';
-
         $locationProvider = new GeoIp2\Php(['loc' => ['GeoIP2-City.mmdb'], 'isp' => ['GeoIP2-ISP.mmdb']]);
         $result = $locationProvider->getLocation(['ip' => '194.57.91.215']);
 

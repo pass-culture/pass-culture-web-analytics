@@ -2,7 +2,7 @@
 /**
  * Piwik - free/libre analytics platform
  *
- * @link http://piwik.org
+ * @link https://matomo.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
  */
@@ -60,7 +60,6 @@ class API extends \Piwik\Plugin\API
     const OPTION_SEARCH_KEYWORD_QUERY_PARAMETERS_GLOBAL = 'SitesManager_SearchKeywordParameters';
     const OPTION_SEARCH_CATEGORY_QUERY_PARAMETERS_GLOBAL = 'SitesManager_SearchCategoryParameters';
     const OPTION_EXCLUDED_USER_AGENTS_GLOBAL = 'SitesManager_ExcludedUserAgentsGlobal';
-    const OPTION_SITE_SPECIFIC_USER_AGENT_EXCLUDE_ENABLE = 'SitesManager_EnableSiteSpecificUserAgentExclude';
     const OPTION_KEEP_URL_FRAGMENTS_GLOBAL = 'SitesManager_KeepURLFragmentsGlobal';
 
     /**
@@ -615,6 +614,7 @@ class API extends \Piwik\Plugin\API
                             $excludeUnknownUrls = null)
     {
         Piwik::checkUserHasSuperUserAccess();
+        SitesManager::dieIfSitesAdminIsDisabled();
 
         $this->checkName($siteName);
 
@@ -795,6 +795,7 @@ class API extends \Piwik\Plugin\API
     public function deleteSite($idSite)
     {
         Piwik::checkUserHasSuperUserAccess();
+        SitesManager::dieIfSitesAdminIsDisabled();
 
         $idSites = $this->getSitesId();
         if (!in_array($idSite, $idSites)) {
@@ -1064,11 +1065,11 @@ class API extends \Piwik\Plugin\API
      * only the global user agent substrings (see @setGlobalExcludedUserAgents) will be used.
      *
      * @return bool
+     * @deprecated Will be removed in Matomo 4.0
      */
     public function isSiteSpecificUserAgentExcludeEnabled()
     {
-        Piwik::checkUserHasSomeAdminAccess();
-        return (bool)Option::get(self::OPTION_SITE_SPECIFIC_USER_AGENT_EXCLUDE_ENABLE);
+        return true;
     }
 
     /**
@@ -1076,16 +1077,10 @@ class API extends \Piwik\Plugin\API
      * websites.
      *
      * @param bool $enabled
+     * @deprecated Will be removed in Matomo 4.0
      */
     public function setSiteSpecificUserAgentExcludeEnabled($enabled)
     {
-        Piwik::checkUserHasSuperUserAccess();
-
-        // update option
-        Option::set(self::OPTION_SITE_SPECIFIC_USER_AGENT_EXCLUDE_ENABLE, $enabled);
-
-        // make sure tracker cache will reflect change
-        Cache::deleteTrackerCache();
     }
 
     /**
@@ -1255,6 +1250,7 @@ class API extends \Piwik\Plugin\API
                                $excludeUnknownUrls = null)
     {
         Piwik::checkUserHasAdminAccess($idSite);
+        SitesManager::dieIfSitesAdminIsDisabled();
 
         $idSites = $this->getSitesId();
 

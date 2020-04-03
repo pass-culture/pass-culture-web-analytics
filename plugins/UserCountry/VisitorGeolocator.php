@@ -2,7 +2,7 @@
 /**
  * Piwik - free/libre analytics platform
  *
- * @link http://piwik.org
+ * @link https://matomo.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
  */
@@ -189,7 +189,7 @@ class VisitorGeolocator
             $this->logger->debug('Updating visit with idvisit = {idVisit} (IP = {ip}). Changes: {changes}', array(
                 'idVisit' => $idVisit,
                 'ip' => $ip,
-                'changes' => json_encode($valuesToUpdate)
+                'changes' => $valuesToUpdate
             ));
 
             $this->dao->updateVisits($valuesToUpdate, $idVisit);
@@ -265,7 +265,7 @@ class VisitorGeolocator
                     $onLogProcessed($row, $updatedValues);
                 }
             }
-        });
+        }, $willDelete = false);
     }
 
     /**

@@ -116,7 +116,7 @@ class API extends \Piwik\Plugin\API
         Piwik::checkUserHasSomeAdminAccess();
 
         // get users only returns users of sites the current user has at least admin access to
-        $users = Request::processRequest('UsersManager.getUsers');
+        $users = Request::processRequest('UsersManager.getUsers', ['filter_limit' => -1]);
         $userFound = false;
         foreach ($users as $user) {
             if ($user['login'] === $copyToUser) {
@@ -126,7 +126,7 @@ class API extends \Piwik\Plugin\API
         }
 
         if (!$userFound) {
-            throw new \Exception(sprintf('Cannot copy dashboard to user %s, user not found or user does not have access to same site.', $copyToUser));
+            throw new \Exception(sprintf('Cannot copy dashboard to user %s, user not found.', $copyToUser));
         }
 
         $login  = Piwik::getCurrentUserLogin();

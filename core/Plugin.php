@@ -2,7 +2,7 @@
 /**
  * Piwik - free/libre analytics platform
  *
- * @link http://piwik.org
+ * @link https://matomo.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
  */
@@ -10,13 +10,11 @@ namespace Piwik;
 
 use Piwik\Container\StaticContainer;
 use Piwik\Plugin\Dependency;
+use Piwik\Plugin\Manager;
 use Piwik\Plugin\MetadataLoader;
 
-/**
- * @see Piwik\Plugin\MetadataLoader
- */
-require_once PIWIK_INCLUDE_PATH . '/core/Plugin/MetadataLoader.php';
-
+if (!class_exists('Piwik\Plugin')) {
+  
 /**
  * Base class of all Plugin Descriptor classes.
  *
@@ -354,7 +352,9 @@ class Plugin
 
         $cacheId = 'Plugin' . $this->pluginName . $componentName . $expectedSubclass;
 
-        $componentFile = sprintf('%s/plugins/%s/%s.php', PIWIK_INCLUDE_PATH, $this->pluginName, $componentName);
+        $pluginsDir = Manager::getPluginDirectory($this->pluginName);
+
+        $componentFile = sprintf('%s/%s.php', $pluginsDir, $componentName);
 
         if ($this->cache->contains($cacheId)) {
             $classname = $this->cache->fetch($cacheId);
@@ -534,7 +534,9 @@ class Plugin
     {
         $components = array();
 
-        $baseDir = PIWIK_INCLUDE_PATH . '/plugins/' . $this->pluginName . '/' . $directoryWithinPlugin;
+        $pluginsDir = Manager::getPluginDirectory($this->pluginName);
+        $baseDir = $pluginsDir . '/' . $directoryWithinPlugin;
+
         $files   = Filesystem::globr($baseDir, '*.php');
 
         foreach ($files as $file) {
@@ -593,3 +595,5 @@ class Plugin
         return $dependency;
     }
 }
+}
+    

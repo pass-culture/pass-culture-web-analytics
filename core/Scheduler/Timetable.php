@@ -2,7 +2,7 @@
 /**
  * Piwik - free/libre analytics platform
  *
- * @link http://piwik.org
+ * @link https://matomo.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
  */
@@ -114,6 +114,17 @@ class Timetable
         $this->save();
 
         return Date::factory($rescheduledTime);
+    }
+
+    public function rescheduleTaskAndRunTomorrow(Task $task)
+    {
+        $tomorrow = Date::factory('tomorrow');
+
+        // update the scheduled time
+        $this->timetable[$task->getName()] = $tomorrow->getTimestamp();
+        $this->save();
+
+        return $tomorrow;
     }
 
     public function save()

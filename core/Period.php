@@ -2,7 +2,7 @@
 /**
  * Piwik - free/libre analytics platform
  *
- * @link http://piwik.org
+ * @link https://matomo.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
  */
@@ -248,6 +248,21 @@ abstract class Period
     }
 
     /**
+     * Returns whether the date `$date` is within the current period or not.
+     *
+     * Note: the time component of the period's dates and `$date` is ignored.
+     *
+     * @param Date $today
+     * @return bool
+     */
+    public function isDateInPeriod(Date $date)
+    {
+        $ts = $date->getStartOfDay()->getTimestamp();
+        return $ts >= $this->getDateStart()->getStartOfDay()->getTimestamp()
+            && $ts < $this->getDateEnd()->addDay(1)->getStartOfDay()->getTimestamp();
+    }
+
+    /**
      * Add a date to the period.
      *
      * Protected because adding periods after initialization is not supported.
@@ -366,7 +381,7 @@ abstract class Period
         list($formatStart, $formatEnd) = $this->explodeFormat($format);
 
         $string = $dateStart->getLocalized($formatStart);
-        $string .= $dateEnd->getLocalized($formatEnd);
+        $string .= $dateEnd->getLocalized($formatEnd, false);
 
         return $string;
     }

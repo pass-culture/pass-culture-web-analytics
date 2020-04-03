@@ -2,13 +2,15 @@
 /**
  * Piwik - free/libre analytics platform
  *
- * @link http://piwik.org
+ * @link https://matomo.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  */
 
 namespace Piwik\Application\Kernel;
 
 use Piwik\Common;
+use Piwik\Config;
+use Piwik\Exception\InvalidRequestParameterException;
 use Piwik\Exception\NotYetInstalledException;
 use Piwik\Filechecks;
 use Piwik\Piwik;
@@ -75,9 +77,17 @@ class EnvironmentValidator
             return;
         }
 
+        $general = $this->settingsProvider->getSection('General');
+
+        if (isset($general['enable_installer'])
+            && !$general['enable_installer']
+        ) {
+            throw new NotYetInstalledException('Matomo is not set up yet');
+        }
+
         $message = $this->getSpecificMessageWhetherFileExistsOrNot($path);
 
-        $exception = new \Exception($message);
+        $exception = new NotYetInstalledException($message);
 
         if ($startInstaller) {
             $this->startInstallation($exception);

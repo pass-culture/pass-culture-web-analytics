@@ -1,10 +1,13 @@
 <?php
 
+use Piwik\Plugins\Diagnostics\Diagnostic\CronArchivingLastRunCheck;
+
 return array(
     // Diagnostics for everything that is required for Piwik to run
     'diagnostics.required' => array(
         DI\get('Piwik\Plugins\Diagnostics\Diagnostic\PhpVersionCheck'),
         DI\get('Piwik\Plugins\Diagnostics\Diagnostic\DbAdapterCheck'),
+        DI\get('Piwik\Plugins\Diagnostics\Diagnostic\DbReaderCheck'),
         DI\get('Piwik\Plugins\Diagnostics\Diagnostic\PhpExtensionsCheck'),
         DI\get('Piwik\Plugins\Diagnostics\Diagnostic\PhpFunctionsCheck'),
         DI\get('Piwik\Plugins\Diagnostics\Diagnostic\PhpSettingsCheck'),
@@ -23,6 +26,7 @@ return array(
         DI\get('Piwik\Plugins\Diagnostics\Diagnostic\RecommendedFunctionsCheck'),
         DI\get('Piwik\Plugins\Diagnostics\Diagnostic\NfsDiskCheck'),
         DI\get('Piwik\Plugins\Diagnostics\Diagnostic\CronArchivingCheck'),
+        DI\get(CronArchivingLastRunCheck::class),
         DI\get('Piwik\Plugins\Diagnostics\Diagnostic\LoadDataInfileCheck'),
         Di\get('Piwik\Plugins\Diagnostics\Diagnostic\DbOverSSLCheck'),
         Di\get('Piwik\Plugins\Diagnostics\Diagnostic\DbMaxPacket'),

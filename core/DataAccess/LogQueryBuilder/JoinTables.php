@@ -2,7 +2,7 @@
 /**
  * Piwik - free/libre analytics platform
  *
- * @link http://piwik.org
+ * @link https://matomo.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
  */
@@ -10,6 +10,7 @@
 namespace Piwik\DataAccess\LogQueryBuilder;
 
 use Exception;
+use Piwik\DataAccess\LogAggregator;
 use Piwik\Plugin\LogTablesProvider;
 
 class JoinTables extends \ArrayObject
@@ -18,6 +19,40 @@ class JoinTables extends \ArrayObject
      * @var LogTablesProvider
      */
     private $logTableProvider;
+
+    // NOTE: joins can be specified explicitly as arrays w/ 'joinOn' keys or implicitly as table names. when
+    // table names are used, the joins dependencies are assumed based on how we want to order those joins.
+    // the below table list the possible dependencies of each table, and is specifically designed to enforce
+    // the following order:
+    // log_link_visit_action, log_action, log_visit, log_conversion, log_conversion_item
+    // which means if an array is supplied where log_visit comes before log_link_visitAction, it will
+    // be moved to after it.
+    private $implicitTableDependencies = [
+        'log_link_visit_action' => [
+            // empty
+        ],
+        'log_action' => [
+            'log_link_visit_action',
+            'log_conversion',
+            'log_conversion_item',
+            'log_visit',
+        ],
+        'log_visit' => [
+            'log_link_visit_action',
+            'log_action',
+        ],
+        'log_conversion' => [
+            'log_link_visit_action',
+            'log_action',
+            'log_visit',
+        ],
+        'log_conversion_item' => [
+            'log_link_visit_action',
+            'log_action',
+            'log_visit',
+            'log_conversion',
+        ],
+    ];
 
     /**
      * Tables constructor.
@@ -114,15 +149,87 @@ class JoinTables extends \ArrayObject
 
         // the first entry is always the FROM table
         $firstTable = array_shift($tables);
+        $sorted = [$firstTable];
+
+        if (strpos($firstTable, LogAggregator::LOG_TABLE_SEGMENT_TEMPORARY_PREFIX) === 0) {
+            // the first table might be a temporary segment table in which case we need to keep the next one as well
+            $sorted[] = array_shift($tables);
+        }
 
         $dependencies = $this->parseDependencies($tables);
 
-        $sorted = [$firstTable];
         $this->visitTableListDfs($tables, $dependencies, function ($tableInfo) use (&$sorted) {
             $sorted[] = $tableInfo;
         });
 
         $this->exchangeArray($sorted);
+    }
+
+    public function isTableJoinableOnVisit($tableToCheck)
+    {
+        $table = $this->getLogTable($tableToCheck);
+
+        if (empty($table)) {
+            return false;
+        }
+
+        if ($table->getColumnToJoinOnIdVisit()) {
+            return true;
+        }
+
+        if ($table->getLinkTableToBeAbleToJoinOnVisit()) {
+            return true;
+        }
+
+        $otherWays = $table->getWaysToJoinToOtherLogTables();
+
+        if (empty($otherWays)) {
+            return false;
+        }
+
+        foreach ($otherWays as $logTable => $column) {
+            if ($logTable == 'log_visit' || $this->isTableJoinableOnVisit($logTable)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public function isTableJoinableOnAction($tableToCheck)
+    {
+        $table = $this->getLogTable($tableToCheck);
+
+        if (empty($table)) {
+            return false;
+        }
+
+        if ($table->getColumnToJoinOnIdAction()) {
+            return true;
+        }
+
+        $otherWays = $table->getWaysToJoinToOtherLogTables();
+
+        if (empty($otherWays)) {
+            return false;
+        }
+
+        foreach ($otherWays as $logTable => $column) {
+            if ($logTable == 'log_action' || $this->isTableJoinableOnAction($logTable)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public function addTableDependency($table, $dependentTable)
+    {
+        if (!empty($this->implicitTableDependencies[$table])) {
+            return;
+        }
+
+        $this->implicitTableDependencies[$table] = [$dependentTable];
     }
 
     private function checkTableCanBeUsedForSegmentation($tableName)
@@ -154,39 +261,7 @@ class JoinTables extends \ArrayObject
 
     private function assumeImplicitJoinDependencies($allTablesToQuery, $table)
     {
-        // NOTE: joins can be specified explicitly as arrays w/ 'joinOn' keys or implicitly as table names. when
-        // table names are used, the joins dependencies are assumed based on how we want to order those joins.
-        // the below table list the possible dependencies of each table, and is specifically designed to enforce
-        // the following order:
-        // log_link_visit_action, log_action, log_visit, log_conversion, log_conversion_item
-        // which means if an array is supplied where log_visit comes before log_link_visitAction, it will
-        // be moved to after it.
-        $implicitTableDependencies = [
-            'log_link_visit_action' => [
-                // empty
-            ],
-            'log_action' => [
-                'log_link_visit_action',
-                'log_conversion',
-                'log_conversion_item',
-                'log_visit',
-            ],
-            'log_visit' => [
-                'log_link_visit_action',
-                'log_action',
-            ],
-            'log_conversion' => [
-                'log_link_visit_action',
-                'log_action',
-                'log_visit',
-            ],
-            'log_conversion_item' => [
-                'log_link_visit_action',
-                'log_action',
-                'log_visit',
-                'log_conversion',
-            ],
-        ];
+        $implicitTableDependencies = $this->implicitTableDependencies;
 
         $result = [];
         if (isset($implicitTableDependencies[$table])) {

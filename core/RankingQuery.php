@@ -2,7 +2,7 @@
 /**
  * Piwik - free/libre analytics platform
  *
- * @link http://piwik.org
+ * @link https://matomo.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
  */
@@ -41,6 +41,9 @@ use Exception;
  */
 class RankingQuery
 {
+    // a special label used to mark the 'Others' row in a ranking query result set. this is mapped to the
+    // datatable summary row during archiving.
+    const LABEL_SUMMARY_ROW = '__mtm_ranking_query_others__';
 
     /**
      * Contains the labels of the inner query.
@@ -84,7 +87,7 @@ class RankingQuery
      * The value to use in the label of the 'Others' row.
      * @var string
      */
-    private $othersLabelValue = 'Others';
+    private $othersLabelValue = self::LABEL_SUMMARY_ROW;
 
     /**
      * Constructor.
@@ -217,13 +220,16 @@ class RankingQuery
      *                            has to be specified in this query. {@link RankingQuery} cannot apply ordering
      *                            itself.
      * @param $bind array         Bindings for the inner query.
+     * @param int $timeLimitInMs  Adds a MAX_EXECUTION_TIME query hint to the query if $timeLimitInMs > 0
      * @return array              The format depends on which methods have been used
      *                            to configure the ranking query.
      */
-    public function execute($innerQuery, $bind = array())
+    public function execute($innerQuery, $bind = array(), $timeLimitInMs = 0)
     {
         $query = $this->generateRankingQuery($innerQuery);
-        $data  = Db::fetchAll($query, $bind);
+        $query = DbHelper::addMaxExecutionTimeHintToQuery($query, $timeLimitInMs);
+
+        $data  = Db::getReader()->fetchAll($query, $bind);
 
         if ($this->columnToMarkExcludedRows !== false) {
             // split the result into the regular result and the rows with special treatment
