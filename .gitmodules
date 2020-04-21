@@ -46,10 +46,6 @@
 	path = plugins/LoginLdap
 	url = https://github.com/matomo-org/plugin-LoginLdap.git
     branch = master
-[submodule "plugins/MarketingCampaignsReporting"]
-	path = plugins/MarketingCampaignsReporting
-	url = https://github.com/matomo-org/plugin-MarketingCampaignsReporting.git
-    branch = master
 [submodule "plugins/TagManager"]
 	path = plugins/TagManager
 	url = https://github.com/matomo-org/tag-manager.git

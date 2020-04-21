@@ -1014,13 +1014,13 @@ Plugins[] = UserId
 Plugins[] = CustomPiwikJs
 Plugins[] = Tour
 
+;;; Plugins added by passculture team
 Plugins[] = EnvironmentVariables
 Plugins[] = DbCommands
 Plugins[] = AdminCommands
-
-Plugins[] = EnvironmentVariables
-Plugins[] = DbCommands
-Plugins[] = AdminCommands
+Plugins[] = MarketingCampaignsReporting
+Plugins[] = UsersFlow
+;;;;;;;;;;
 
 [PluginsInstalled]
 PluginsInstalled[] = Diagnostics
