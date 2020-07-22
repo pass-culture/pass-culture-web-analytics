@@ -6,7 +6,7 @@
   function build_cron() {
     $inc_job = new \Cron\Job\ShellJob();
     $inc_job->setCommand('chmod +x generate_reports.sh && ./generate_reports.sh');
-    $inc_job->setSchedule(new \Cron\Schedule\CrontabSchedule('* * * * *'));
+    $inc_job->setSchedule(new \Cron\Schedule\CrontabSchedule('* */2 * * *'));
 
     $resolver = new \Cron\Resolver\ArrayResolver();
     $resolver->addJob($inc_job);
