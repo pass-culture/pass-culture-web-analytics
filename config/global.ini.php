@@ -1018,6 +1018,7 @@ Plugins[] = Tour
 Plugins[] = EnvironmentVariables
 Plugins[] = DbCommands
 Plugins[] = AdminCommands
+Plugins[] = MarketingCampaignsReporting
 Plugins[] = TagManager
 Plugins[] = UsersFlow
 ;;;;;;;;;;
